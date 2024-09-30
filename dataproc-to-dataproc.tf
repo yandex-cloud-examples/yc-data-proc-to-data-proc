@@ -22,39 +22,39 @@ locals {
   dataproc_target_name = "dataproc-target-cluster" # Name of the Data Proc target cluster
 }
 
-resource "yandex_vpc_network" "dataproc_network" {
+resource "yandex_vpc_network" "dataproc-network" {
   description = "Network for Data Proc"
   name        = local.network_name
 }
 
 # NAT gateway for Data Proc
-resource "yandex_vpc_gateway" "dataproc_nat" {
+resource "yandex_vpc_gateway" "dataproc-nat" {
   name = local.nat_name
   shared_egress_gateway {}
 }
 
 # Route table for Data Proc
-resource "yandex_vpc_route_table" "dataproc_rt" {
-  network_id = yandex_vpc_network.dataproc_network.id
+resource "yandex_vpc_route_table" "dataproc-rt" {
+  network_id = yandex_vpc_network.dataproc-network.id
 
   static_route {
     destination_prefix = "0.0.0.0/0"
-    gateway_id         = yandex_vpc_gateway.dataproc_nat.id
+    gateway_id         = yandex_vpc_gateway.dataproc-nat.id
   }
 }
 
-resource "yandex_vpc_subnet" "dataproc_subnet-a" {
+resource "yandex_vpc_subnet" "dataproc-subnet-a" {
   description    = "Subnet ru-central1-a availability zone for Data Proc and Managed Service for ClickHouse"
   name           = local.subnet_name
   zone           = "ru-central1-a"
-  network_id     = yandex_vpc_network.dataproc_network.id
+  network_id     = yandex_vpc_network.dataproc-network.id
   v4_cidr_blocks = ["10.140.0.0/24"]
-  route_table_id = yandex_vpc_route_table.dataproc_rt.id
+  route_table_id = yandex_vpc_route_table.dataproc-rt.id
 }
 
 resource "yandex_vpc_security_group" "dataproc-security-group" {
   description = "Security group for the Data Proc cluster"
-  network_id  = yandex_vpc_network.dataproc_network.id
+  network_id  = yandex_vpc_network.dataproc-network.id
 
   ingress {
     description       = "Allow any incoming traffic within the security group"
@@ -95,15 +95,15 @@ resource "yandex_iam_service_account" "dataproc-sa" {
 # Assign the `dataproc.agent` role to the Data Proc service account
 resource "yandex_resourcemanager_folder_iam_binding" "dataproc-agent" {
   folder_id = local.folder_id
-  role      = "mdb.dataproc.agent"
-  members = ["serviceAccount:${yandex_iam_service_account.dataproc-sa.id}"]
+  role      = "dataproc.agent"
+  members   = ["serviceAccount:${yandex_iam_service_account.dataproc-sa.id}"]
 }
 
 # Assign the `dataproc.provisioner` role to the Data Proc service account
 resource "yandex_resourcemanager_folder_iam_binding" "dataproc-provisioner" {
   folder_id = local.folder_id
-  role      = "mdb.dataproc.provisioner"
-  members = ["serviceAccount:${yandex_iam_service_account.dataproc-sa.id}"]
+  role      = "dataproc.provisioner"
+  members   = ["serviceAccount:${yandex_iam_service_account.dataproc-sa.id}"]
 }
 
 # Yandex Object Storage bucket
@@ -130,7 +130,7 @@ resource "yandex_iam_service_account_static_access_key" "sa-static-key" {
 resource "yandex_storage_bucket" "input-bucket" {
   access_key = yandex_iam_service_account_static_access_key.sa-static-key.access_key
   secret_key = yandex_iam_service_account_static_access_key.sa-static-key.secret_key
-  bucket     = local.input-bucket
+  bucket     = local.input_bucket
 
   grant {
     id = yandex_iam_service_account.dataproc-sa.id
@@ -143,7 +143,7 @@ resource "yandex_storage_bucket" "input-bucket" {
 resource "yandex_storage_bucket" "output-bucket" {
   access_key = yandex_iam_service_account_static_access_key.sa-static-key.access_key
   secret_key = yandex_iam_service_account_static_access_key.sa-static-key.secret_key
-  bucket     = local.output-bucket
+  bucket     = local.output_bucket
 
   grant {
     id = yandex_iam_service_account.dataproc-sa.id
@@ -182,19 +182,19 @@ resource "yandex_dataproc_cluster" "dataproc-source-cluster" {
         disk_type_id       = "network-hdd"
         disk_size          = 20 # GB
       }
-      subnet_id   = yandex_vpc_subnet.dataproc_subnet-a.id
+      subnet_id   = yandex_vpc_subnet.dataproc-subnet-a.id
       hosts_count = 1
     }
 
     subcluster_spec {
       name = "data"
-      role = "DATANODE"
+      role = "COMPUTENODE"
       resources {
         resource_preset_id = "s2.micro" # 2 vCPU, 8 GB RAM
         disk_type_id       = "network-hdd"
         disk_size          = 20 # GB
       }
-      subnet_id   = yandex_vpc_subnet.dataproc_subnet-a.id
+      subnet_id   = yandex_vpc_subnet.dataproc-subnet-a.id
       hosts_count = 1
     }
   }
@@ -230,19 +230,19 @@ resource "yandex_dataproc_cluster" "dataproc-target-cluster" {
         disk_type_id       = "network-hdd"
         disk_size          = 20 # GB
       }
-      subnet_id   = yandex_vpc_subnet.dataproc_subnet-a.id
+      subnet_id   = yandex_vpc_subnet.dataproc-subnet-a.id
       hosts_count = 1
     }
 
     subcluster_spec {
       name = "data"
-      role = "DATANODE"
+      role = "COMPUTENODE"
       resources {
         resource_preset_id = "s2.micro" # 2 vCPU, 8 GB RAM
         disk_type_id       = "network-hdd"
         disk_size          = 20 # GB
       }
-      subnet_id   = yandex_vpc_subnet.dataproc_subnet-a.id
+      subnet_id   = yandex_vpc_subnet.dataproc-subnet-a.id
       hosts_count = 1
     }
   }
