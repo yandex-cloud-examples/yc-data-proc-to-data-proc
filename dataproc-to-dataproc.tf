@@ -44,7 +44,7 @@ resource "yandex_vpc_route_table" "dataproc-rt" {
 }
 
 resource "yandex_vpc_subnet" "dataproc-subnet-a" {
-  description    = "Subnet ru-central1-a availability zone for Yandex Data Processing and Managed Service for ClickHouse"
+  description    = "Subnet for Yandex Data Processing and Managed Service for ClickHouse"
   name           = local.subnet_name
   zone           = "ru-central1-a"
   network_id     = yandex_vpc_network.dataproc-network.id
