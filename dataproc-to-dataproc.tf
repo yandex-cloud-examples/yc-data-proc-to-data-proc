@@ -44,7 +44,7 @@ resource "yandex_vpc_route_table" "dataproc-rt" {
 }
 
 resource "yandex_vpc_subnet" "dataproc-subnet-a" {
-  description    = "Subnet for Yandex Data Processing and Managed Service for ClickHouse"
+  description    = "Subnet for Yandex Data Processing clusters"
   name           = local.subnet_name
   zone           = "ru-central1-a"
   network_id     = yandex_vpc_network.dataproc-network.id
@@ -76,6 +76,13 @@ resource "yandex_vpc_security_group" "dataproc-security-group" {
     description    = "Allow connections to the HTTPS port from any IP address"
     protocol       = "TCP"
     port           = 443
+    v4_cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    description    = "Allow access to NTP servers for time syncing"
+    protocol       = "UDP"
+    port           = 123
     v4_cidr_blocks = ["0.0.0.0/0"]
   }
 
@@ -115,7 +122,7 @@ resource "yandex_iam_service_account" "sa-for-obj-storage" {
 }
 
 # Assign the `storage.admin` role to the Yandex Data Processing service account to create storages and manage the bucket ACLs
-resource "yandex_resourcemanager_folder_iam_binding" "s3-editor" {
+resource "yandex_resourcemanager_folder_iam_binding" "s3-admin" {
   folder_id = local.folder_id
   role      = "storage.admin"
   members = ["serviceAccount:${yandex_iam_service_account.sa-for-obj-storage.id}"]
@@ -132,6 +139,10 @@ resource "yandex_storage_bucket" "input-bucket" {
   secret_key = yandex_iam_service_account_static_access_key.sa-static-key.secret_key
   bucket     = local.input_bucket
 
+  depends_on = [
+    yandex_resourcemanager_folder_iam_binding.s3-admin
+  ]
+
   grant {
     id = yandex_iam_service_account.dataproc-sa.id
     type        = "CanonicalUser"
@@ -144,6 +155,10 @@ resource "yandex_storage_bucket" "output-bucket" {
   access_key = yandex_iam_service_account_static_access_key.sa-static-key.access_key
   secret_key = yandex_iam_service_account_static_access_key.sa-static-key.secret_key
   bucket     = local.output_bucket
+
+  depends_on = [
+    yandex_resourcemanager_folder_iam_binding.s3-admin
+  ]
 
   grant {
     id = yandex_iam_service_account.dataproc-sa.id
